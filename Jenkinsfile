@@ -20,5 +20,31 @@ pipeline {
                 
             }
         }
+        stage("EC2 Deploy") {
+            steps {
+                sh 'docker run -d -p 3000:3000 714032487947.dkr.ecr.us-east-1.amazonaws.com/lpu/class:prod-${BUILD_NUMBER}'
+            }
+        }
+        stage('Health Check') {
+            steps {
+                script {
+                def url = "http://localhost:3000/"
+                sh """
+                    set -e
+                    for i in {1..10}; do
+                    echo "Health probe #\$i: ${url}"
+                    code=\$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "${url}") || true
+                    if [ "\$code" = "200" ]; then
+                        echo "✅ Healthy (200)."
+                        exit 0
+                    fi
+                    sleep 3
+                    done
+                    echo "❌ Health check failed."
+                    exit 1
+                """
+                }
+            }
+        }
     }
 }
